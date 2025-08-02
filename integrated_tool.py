@@ -253,13 +253,15 @@ class IntegratedDiscordTool:
                 
                 # Status display with colors
                 if status == 'valid':
-                    print(Fore.GREEN + f"[{completed}/{len(codes)}] {code} -> VALID!")
+                    print(Fore.GREEN + f"[{completed}/{len(codes)}] {code} -> ✅ VALID!")
                 elif status == 'invalid':
-                    print(Fore.RED + f"[{completed}/{len(codes)}] {code} -> Invalid")
+                    print(Fore.WHITE + f"[{completed}/{len(codes)}] {code} -> ❌ Invalid (normal)")
                 elif status == 'ratelimited':
-                    print(Fore.YELLOW + f"[{completed}/{len(codes)}] {code} -> Rate Limited")
+                    print(Fore.YELLOW + f"[{completed}/{len(codes)}] {code} -> ⏳ Rate Limited")
+                elif status.startswith('proxy') or 'proxy' in status.lower():
+                    print(Fore.MAGENTA + f"[{completed}/{len(codes)}] {code} -> 🔗 Proxy issue (switching to direct)")
                 else:
-                    print(Fore.CYAN + f"[{completed}/{len(codes)}] {code} -> {status}")
+                    print(Fore.CYAN + f"[{completed}/{len(codes)}] {code} -> ⚠️ {status}")
                 
                 # Dynamic delay adjustment
                 if status == 'ratelimited':
@@ -414,7 +416,12 @@ class IntegratedDiscordTool:
         print(Fore.CYAN + "2. Don't use proxies (faster but higher risk)")
         print(Fore.CYAN + "3. Auto-detect (try proxies first, fallback to direct)")
         
-        proxy_choice = input(Fore.WHITE + "Enter choice (1-3): ").strip()
+        print(Fore.WHITE + "\n⚠️  IMPORTANT NOTE:")
+        print(Fore.YELLOW + "• 404 errors are NORMAL - they mean the code doesn't exist")
+        print(Fore.YELLOW + "• Valid Discord Nitro codes are extremely rare (1 in billions)")
+        print(Fore.YELLOW + "• Most generated codes will show as '404/Invalid' - this is expected!")
+        
+        proxy_choice = input(Fore.WHITE + "\nEnter choice (1-3): ").strip()
         
         if proxy_choice == '1':
             use_proxy = True
