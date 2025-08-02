@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="nitro-toolkit",
-    version="2.1.1",
+    version="2.1.2",
     author="HenryLok0",
     author_email="mail@henrylok.me",  # Replace with your email
     description="Discord Nitro gift code generator and checker toolkit",

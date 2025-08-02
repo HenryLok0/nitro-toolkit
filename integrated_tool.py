@@ -47,6 +47,19 @@ def download_and_save_proxies(proxy_file='data/proxies.txt', limit=200):
 
 
 class IntegratedDiscordTool:
+    def rotate_proxy(self):
+        """
+        隨機切換一組 proxy，並顯示提示。
+        僅在 self.prox 有多組 proxy 時有效。
+        """
+        if self.prox and len(self.prox) > 1:
+            # 隨機打亂 proxy 順序
+            random.shuffle(self.prox)
+            print(Fore.MAGENTA + "[自動切換 Proxy] 已隨機切換一組 Proxy。")
+        elif self.prox:
+            print(Fore.MAGENTA + "[自動切換 Proxy] 只有一組 Proxy，無法切換。")
+        else:
+            print(Fore.MAGENTA + "[自動切換 Proxy] 無可用 Proxy。")
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
@@ -310,6 +323,8 @@ class IntegratedDiscordTool:
                             sleep(1)
                         
                         print(Fore.GREEN + f"\n✅ Cooldown #{cooldown_cycles} complete! Continuing with high sensitivity...")
+                        if use_proxy:
+                            self.rotate_proxy()
                         consecutive_rate_limits = 0  # Reset but stay in sensitive mode
                         continue  # Skip the normal rate limit handling
                 else:
@@ -358,6 +373,8 @@ class IntegratedDiscordTool:
                         sleep(1)
                     
                     print(Fore.GREEN + f"\n✅ Cooldown #{cooldown_cycles} complete! Entering high sensitivity mode...")
+                    if use_proxy:
+                        self.rotate_proxy()
                     consecutive_rate_limits = 0  # Reset counter after cooldown
                     post_cooldown_sensitivity = True  # Enable immediate cooldown on next rate limit
                     
@@ -495,7 +512,7 @@ class IntegratedDiscordTool:
     
 
     def main_menu(self, code_type=None, amount=None, speed_mode=None, check=None, use_proxy=False, proxy_file='data/proxies.txt'):
-        """主流程，優先使用 CLI 參數，沒給才互動式詢問"""
+        """Main workflow. Prefer CLI arguments, fallback to interactive prompts."""
         self.use_proxy = use_proxy
         self.print_banner()
         enabled_opts = []
@@ -512,13 +529,12 @@ class IntegratedDiscordTool:
                 print(Fore.RED + "Failed to load proxies. Continuing without proxies.")
                 self.use_proxy = False
 
-
-        # --- inquirer 選單互動 ---
+        # --- inquirer interactive menu ---
         import subprocess
         try:
             import inquirer
         except ImportError:
-            print(Fore.YELLOW + "\n[!] inquirer 套件未安裝，正在安裝...")
+            print(Fore.YELLOW + "\n[!] 'inquirer' package not installed. Installing...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'inquirer'])
             import inquirer
 
@@ -593,7 +609,7 @@ class IntegratedDiscordTool:
             answer = inquirer.prompt(questions)
             check = answer['check']
 
-        # 產生 Nitro
+        # Generate Nitro codes
         codes = self.generate_codes(amount, code_type)
 
         if check:
