@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nitro-toolkit"
+version = "2.0.0"
+authors = [
+    {name = "HenryLok0", email = "your.email@example.com"},
+]
+description = "Discord Nitro gift code generator and checker toolkit"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.6"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+keywords = ["discord", "nitro", "generator", "checker", "gift", "codes", "api"]
+dependencies = [
+    "requests>=2.25.0",
+    "colorama>=0.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/HenryLok0/discord"
+"Bug Reports" = "https://github.com/HenryLok0/discord/issues"
+Source = "https://github.com/HenryLok0/discord"
+Documentation = "https://github.com/HenryLok0/discord/blob/main/README.md"
+
+[project.scripts]
+nitro-toolkit = "discord_nitro_tool.integrated_tool:main"
+nitro-checker = "discord_nitro_tool.discord_gift_checker:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["discord_nitro_tool*"]
+
+[tool.setuptools.package-data]
+discord_nitro_tool = ["data/*.txt", "*.md"]
