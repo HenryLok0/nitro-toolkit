@@ -218,7 +218,7 @@ class IntegratedDiscordTool:
         Args:
             codes: List of codes to check
             use_proxy: Whether to use proxy
-            speed_mode: Speed mode ("fast", "balanced", "safe")
+            speed_mode: Speed mode ("fast", "balanced", "safe", "ultra_safe")
             max_workers: Maximum concurrent workers
             
         Returns:
@@ -227,19 +227,28 @@ class IntegratedDiscordTool:
         print(Fore.CYAN + f"Starting batch check of {len(codes)} codes...")
         print(Fore.YELLOW + f"Speed mode: {speed_mode}")
         
+        # Check if IP might be heavily rate limited
+        total_rate_limits = 0
+        heavy_rate_limit_warning_shown = False
+        
         # Configure delays based on speed mode
         if speed_mode == "fast":
             base_delay = 0.1
             max_workers = min(max_workers, 10)
-            rate_limit_threshold = 2  # More sensitive in fast mode
+            rate_limit_threshold = 3  # 3 consecutive rate limits trigger cooldown
         elif speed_mode == "safe":
             base_delay = 3.0
             max_workers = min(max_workers, 2)
-            rate_limit_threshold = 5  # Less sensitive in safe mode
+            rate_limit_threshold = 3  # 3 consecutive rate limits trigger cooldown
+        elif speed_mode == "ultra_safe":
+            base_delay = 10.0
+            max_workers = 1  # Single threaded for ultra safe
+            rate_limit_threshold = 3  # 3 consecutive rate limits trigger cooldown
+            print(Fore.MAGENTA + f"⚠️  Ultra Safe Mode: Using 10s delays with single threading")
         else:  # balanced
             base_delay = 1.0
             max_workers = min(max_workers, 5)
-            rate_limit_threshold = 3  # Default sensitivity
+            rate_limit_threshold = 3  # 3 consecutive rate limits trigger cooldown
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
@@ -250,6 +259,8 @@ class IntegratedDiscordTool:
             
             completed = 0
             consecutive_rate_limits = 0
+            post_cooldown_sensitivity = False  # Flag for immediate cooldown after previous cooldown
+            cooldown_cycles = 0  # Track number of cooldown cycles
             
             for future in as_completed(future_to_code):
                 completed += 1
@@ -259,8 +270,32 @@ class IntegratedDiscordTool:
                 # Track consecutive rate limits
                 if status == 'ratelimited':
                     consecutive_rate_limits += 1
+                    total_rate_limits += 1
+                    
+                    # If we're in post-cooldown sensitivity mode, immediately cooldown on ANY rate limit
+                    if post_cooldown_sensitivity:
+                        cooldown_cycles += 1
+                        print(Fore.RED + f"\n🔄 Rate limit detected after cooldown (Cycle #{cooldown_cycles})!")
+                        print(Fore.YELLOW + f"⏳ Immediate 30-second cooldown...")
+                        
+                        for i in range(30, 0, -1):
+                            print(Fore.CYAN + f"\r⏱️  Cooldown... {i} seconds remaining", end="", flush=True)
+                            sleep(1)
+                        
+                        print(Fore.GREEN + f"\n✅ Cooldown #{cooldown_cycles} complete! Continuing with high sensitivity...")
+                        consecutive_rate_limits = 0  # Reset but stay in sensitive mode
+                        continue  # Skip the normal rate limit handling
                 else:
                     consecutive_rate_limits = 0  # Reset counter
+                
+                # Warn about heavy rate limiting
+                if total_rate_limits > 10 and not heavy_rate_limit_warning_shown:
+                    print(Fore.RED + f"\n⚠️  WARNING: Your IP is heavily rate limited ({total_rate_limits} total)")
+                    print(Fore.YELLOW + f"🔄 Consider:")
+                    print(Fore.YELLOW + f"   • Using Ultra Safe mode (4)")
+                    print(Fore.YELLOW + f"   • Waiting 30-60 minutes before retrying")
+                    print(Fore.YELLOW + f"   • Using a VPN to change your IP")
+                    heavy_rate_limit_warning_shown = True
                 
                 # Status display with colors
                 if status == 'valid':
@@ -274,29 +309,40 @@ class IntegratedDiscordTool:
                 else:
                     print(Fore.CYAN + f"[{completed}/{len(codes)}] {code} -> ⚠️ {status}")
                 
-                # Auto-cooldown when too many consecutive rate limits
+                # Auto-cooldown when too many consecutive rate limits (normal mode)
                 if consecutive_rate_limits >= rate_limit_threshold:
-                    cooldown_time = 30 if speed_mode != "safe" else 60  # Longer cooldown for non-safe modes
-                    print(Fore.RED + f"\n🛑 Too many rate limits detected ({consecutive_rate_limits} consecutive)")
-                    print(Fore.YELLOW + f"⏳ Cooling down for {cooldown_time} seconds...")
+                    cooldown_cycles += 1
+                    if speed_mode == "ultra_safe":
+                        cooldown_time = 120  # 2 minutes for ultra safe
+                    elif speed_mode == "safe":
+                        cooldown_time = 60   # 1 minute for safe
+                    else:
+                        cooldown_time = 30   # 30 seconds for others
                     
-                    # Suggest switching to safer mode if not already in safe mode
-                    if speed_mode != "safe":
-                        print(Fore.CYAN + f"💡 Consider using 'Safe' mode to reduce rate limiting in future runs")
+                    print(Fore.RED + f"\n🛑 Too many rate limits detected ({consecutive_rate_limits} consecutive)")
+                    print(Fore.YELLOW + f"⏳ Cooling down for {cooldown_time} seconds (Cycle #{cooldown_cycles})...")
+                    
+                    # Suggest more conservative settings
+                    if speed_mode != "ultra_safe":
+                        print(Fore.CYAN + f"💡 Consider using 'Ultra Safe' mode for heavily rate-limited IPs")
                     
                     for i in range(cooldown_time, 0, -1):
                         print(Fore.CYAN + f"\r⏱️  Waiting... {i} seconds remaining", end="", flush=True)
                         sleep(1)
                     
-                    print(Fore.GREEN + f"\n✅ Cooldown complete! Resuming checks...")
+                    print(Fore.GREEN + f"\n✅ Cooldown #{cooldown_cycles} complete! Entering high sensitivity mode...")
                     consecutive_rate_limits = 0  # Reset counter after cooldown
+                    post_cooldown_sensitivity = True  # Enable immediate cooldown on next rate limit
                     
                     # Auto-adjust delays after cooldown to be more conservative
                     if speed_mode == "fast":
-                        base_delay *= 2  # Double the delay for fast mode
+                        base_delay *= 3  # Triple the delay for fast mode
                         print(Fore.YELLOW + f"⚙️  Auto-adjusted delay to {base_delay}s for better rate limiting")
                     elif speed_mode == "balanced":
-                        base_delay *= 1.5  # Increase delay for balanced mode
+                        base_delay *= 2  # Double delay for balanced mode
+                        print(Fore.YELLOW + f"⚙️  Auto-adjusted delay to {base_delay}s for better rate limiting")
+                    elif speed_mode == "safe":
+                        base_delay *= 1.5  # Increase delay for safe mode
                         print(Fore.YELLOW + f"⚙️  Auto-adjusted delay to {base_delay}s for better rate limiting")
                 
                 # Dynamic delay adjustment
@@ -486,9 +532,10 @@ class IntegratedDiscordTool:
         print(Fore.GREEN + "1. Fast (0.1s delay, higher rate limit risk)")
         print(Fore.YELLOW + "2. Balanced (1s delay, recommended)")
         print(Fore.RED + "3. Safe (3s delay, lowest rate limit risk)")
+        print(Fore.MAGENTA + "4. Ultra Safe (10s delay, for heavily rate limited IPs)")
         
-        speed_choice = input(Fore.WHITE + "Enter choice (1-3): ").strip()
-        speed_modes = {'1': 'fast', '2': 'balanced', '3': 'safe'}
+        speed_choice = input(Fore.WHITE + "Enter choice (1-4): ").strip()
+        speed_modes = {'1': 'fast', '2': 'balanced', '3': 'safe', '4': 'ultra_safe'}
         speed_mode = speed_modes.get(speed_choice, 'balanced')
         
         # Number of codes to generate
