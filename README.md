@@ -47,13 +47,13 @@ codestate [options]
 | Option                  | Description |
 |-------------------------|-------------|
 | `--gen-proxies`         | Download fresh proxies to data/proxies.txt and exit |
+| `--use-proxy`           | Enable proxy mode (load proxies from data/proxies.txt) |
 | `--input`, `-i`         | Input file path (containing gift card links) |
 | `--delay`, `-d`         | Request delay (seconds, default: 1.0) |
 | `--timeout`, `-t`       | Request timeout (seconds, default: 10) |
 | `--workers`, `-w`       | Max concurrent workers (default: 5) |
 | `--no-threading`        | Disable multi-threading |
 | `--output`, `-o`        | Output filename |
-| `--use-proxy`           | Enable proxy mode (load proxies from data/proxies.txt) |
 | `--proxy-file`          | Proxy list file path (default: data/proxies.txt) |
 
 ## Important Notes
