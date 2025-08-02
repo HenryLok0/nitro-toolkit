@@ -49,17 +49,17 @@ def download_and_save_proxies(proxy_file='data/proxies.txt', limit=200):
 class IntegratedDiscordTool:
     def rotate_proxy(self):
         """
-        隨機切換一組 proxy，並顯示提示。
-        僅在 self.prox 有多組 proxy 時有效。
+        Randomly rotate/switch to a new proxy and show a message.
+        Only effective if self.prox has more than one proxy.
         """
         if self.prox and len(self.prox) > 1:
-            # 隨機打亂 proxy 順序
+            # Shuffle the proxy list
             random.shuffle(self.prox)
-            print(Fore.MAGENTA + "[自動切換 Proxy] 已隨機切換一組 Proxy。")
+            print(Fore.MAGENTA + "[Auto Proxy Switch] Switched to a new proxy.")
         elif self.prox:
-            print(Fore.MAGENTA + "[自動切換 Proxy] 只有一組 Proxy，無法切換。")
+            print(Fore.MAGENTA + "[Auto Proxy Switch] Only one proxy available, cannot switch.")
         else:
-            print(Fore.MAGENTA + "[自動切換 Proxy] 無可用 Proxy。")
+            print(Fore.MAGENTA + "[Auto Proxy Switch] No available proxy.")
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
