@@ -494,52 +494,26 @@ class IntegratedDiscordTool:
         print(Fore.GREEN + f"Results saved to: {filename}")
     
 
-    def main_menu(self):
-        """Main application menu (now supports CLI proxy args)"""
-        parser = argparse.ArgumentParser(description='Nitro Toolkit Integrated Tool')
-        parser.add_argument('--use-proxy', action='store_true', help='Enable proxy mode (load proxies from data/proxies.txt)')
-        parser.add_argument('--proxy-file', type=str, default='data/proxies.txt', help='Proxy list file path (default: data/proxies.txt)')
-        args = parser.parse_args()
-
-        self.use_proxy = False
-        # CLI 參數流程
-        if args.use_proxy:
-            self.use_proxy = True
-            if not self.load_proxies():
-                print(Fore.RED + "Failed to load proxies. Continuing without proxies.")
-                self.use_proxy = False
-            enabled_opts = ['--use-proxy']
-            if args.proxy_file != 'data/proxies.txt':
-                enabled_opts.append(f'--proxy-file {args.proxy_file}')
-            self.print_banner()
-            print(Fore.YELLOW + f"[Tips] Enabled options: {' '.join(enabled_opts)}")
-            code_type = 'boost'  # 預設 boost
-            speed_mode = 'balanced'  # 預設 balanced
-            amount = 10  # 預設產生 10 組
-            # 你可根據需求讓 CLI 支援更多自訂參數
-            print(Fore.CYAN + f"Auto mode: Generating {amount} Nitro Boost codes and checking...")
-            codes = self.generate_codes(amount, code_type)
-            self.check_codes_batch(codes, self.use_proxy, speed_mode)
-            self.print_results()
-            if self.results['ratelimited']:
-                print(Fore.WHITE + f"Found {len(self.results['ratelimited'])} rate limited codes.")
-                recheck = input(Fore.YELLOW + "Do you want to recheck them? (y/n): ").strip().lower()
-                if recheck == 'y':
-                    self.recheck_ratelimited_codes(self.use_proxy)
-                    self.print_results()
-            self.save_results()
-            input(Fore.WHITE + "Press Enter to exit...")
-            return
-
-        # 互動式選單流程
+    def main_menu(self, code_type=None, amount=None, speed_mode=None, check=None, use_proxy=False, proxy_file='data/proxies.txt'):
+        """主流程，優先使用 CLI 參數，沒給才互動式詢問"""
+        self.use_proxy = use_proxy
         self.print_banner()
         enabled_opts = []
         if self.use_proxy:
             enabled_opts.append('--use-proxy')
+        if proxy_file != 'data/proxies.txt':
+            enabled_opts.append(f'--proxy-file {proxy_file}')
         if enabled_opts:
             print(Fore.YELLOW + f"[Tips] Enabled options: {' '.join(enabled_opts)}")
 
-        # 選擇 Nitro 類型（支援上下鍵）
+        # Proxy
+        if self.use_proxy:
+            if not self.load_proxies():
+                print(Fore.RED + "Failed to load proxies. Continuing without proxies.")
+                self.use_proxy = False
+
+
+        # --- inquirer 選單互動 ---
         import subprocess
         try:
             import inquirer
@@ -548,83 +522,81 @@ class IntegratedDiscordTool:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'inquirer'])
             import inquirer
 
-        questions = [
-            inquirer.List(
-                'code_type',
-                message="Select Discord Nitro code type:",
-                choices=[
-                    ('Discord Nitro Boost', 'boost'),
-                    ('Discord Nitro Classic', 'classic'),
-                    ('Exit', 'exit')
-                ],
-                carousel=True
-            )
-        ]
-        answer = inquirer.prompt(questions)
-        if not answer or answer['code_type'] == 'exit':
-            print(Fore.YELLOW + "Goodbye!")
-            sys.exit(0)
-        code_type = answer['code_type']
+        # code_type
+        if code_type not in ['boost', 'classic']:
+            questions = [
+                inquirer.List(
+                    'code_type',
+                    message="Select Discord Nitro code type:",
+                    choices=[
+                        ('Discord Nitro Boost', 'boost'),
+                        ('Discord Nitro Classic', 'classic'),
+                        ('Exit', 'exit')
+                    ],
+                    carousel=True
+                )
+            ]
+            answer = inquirer.prompt(questions)
+            if not answer or answer['code_type'] == 'exit':
+                print(Fore.YELLOW + "Goodbye!")
+                sys.exit(0)
+            code_type = answer['code_type']
 
-        # Proxy 設定
-        print(Fore.WHITE + "\nProxy Configuration:")
-        print(Fore.CYAN + "1. Use proxies (recommended - avoids IP blocking)")
-        print(Fore.CYAN + "2. Don't use proxies (faster but higher risk)")
-        print(Fore.CYAN + "3. Auto-detect (try proxies first, fallback to direct)")
-        print(Fore.WHITE + "\n⚠️  IMPORTANT NOTE:")
-        print(Fore.YELLOW + "• 404 errors are NORMAL - they mean the code doesn't exist")
-        print(Fore.YELLOW + "• Valid Discord Nitro codes are extremely rare (1 in billions)")
-        print(Fore.YELLOW + "• Most generated codes will show as '404/Invalid' - this is expected!")
-        proxy_choice = input(Fore.WHITE + "\nEnter choice (1-3): ").strip()
-        if proxy_choice == '1':
-            self.use_proxy = True
-            if not self.load_proxies():
-                print(Fore.RED + "Failed to load proxies. Would you like to continue without proxies? (y/n)")
-                fallback = input().strip().lower()
-                if fallback != 'y':
-                    print(Fore.YELLOW + "Operation cancelled.")
-                    return
-                self.use_proxy = False
-        elif proxy_choice == '3':
-            self.use_proxy = True
-            if not self.load_proxies():
-                print(Fore.YELLOW + "Auto-detect: Using direct connection (no proxies available)")
-                self.use_proxy = False
-        else:
-            self.use_proxy = False
-            print(Fore.YELLOW + "Using direct connection (no proxies)")
+        # speed_mode
+        valid_modes = ['fast', 'balanced', 'safe', 'ultra_safe']
+        if speed_mode not in valid_modes:
+            speed_mode_map = [
+                ('Fast (0.1s delay, higher rate limit risk)', 'fast'),
+                ('Balanced (1s delay, recommended)', 'balanced'),
+                ('Safe (3s delay, lowest rate limit risk)', 'safe'),
+                ('Ultra Safe (10s delay, for heavily rate limited IPs)', 'ultra_safe')
+            ]
+            questions = [
+                inquirer.List(
+                    'speed_mode',
+                    message="Select speed mode:",
+                    choices=speed_mode_map,
+                    carousel=True
+                )
+            ]
+            answer = inquirer.prompt(questions)
+            speed_mode = answer['speed_mode']
 
-        # Speed mode
-        print(Fore.WHITE + "Speed mode:")
-        print(Fore.GREEN + "1. Fast (0.1s delay, higher rate limit risk)")
-        print(Fore.YELLOW + "2. Balanced (1s delay, recommended)")
-        print(Fore.RED + "3. Safe (3s delay, lowest rate limit risk)")
-        print(Fore.MAGENTA + "4. Ultra Safe (10s delay, for heavily rate limited IPs)")
-        speed_choice = input(Fore.WHITE + "Enter choice (1-4): ").strip()
-        speed_modes = {'1': 'fast', '2': 'balanced', '3': 'safe', '4': 'ultra_safe'}
-        speed_mode = speed_modes.get(speed_choice, 'balanced')
+        # amount
+        if not amount or amount <= 0:
+            while True:
+                questions = [
+                    inquirer.Text(
+                        'amount',
+                        message="Enter number of codes to generate",
+                        validate=lambda _, x: x.isdigit() and int(x) > 0 or "Please enter a positive number."
+                    )
+                ]
+                answer = inquirer.prompt(questions)
+                try:
+                    amount = int(answer['amount'])
+                    if amount > 0:
+                        break
+                except Exception:
+                    pass
 
-        # 產生數量
-        while True:
-            try:
-                amount = int(input(Fore.WHITE + "Enter number of codes to generate: "))
-                if amount > 0:
-                    break
-                else:
-                    print(Fore.RED + "Please enter a positive number.")
-            except ValueError:
-                print(Fore.RED + "Please enter a valid number.")
+        # check
+        if check is None:
+            questions = [
+                inquirer.List(
+                    'check',
+                    message="Do you want to check the generated codes?",
+                    choices=[('Yes, check all codes', True), ('No, just save codes to file', False)],
+                    carousel=True
+                )
+            ]
+            answer = inquirer.prompt(questions)
+            check = answer['check']
 
         # 產生 Nitro
         codes = self.generate_codes(amount, code_type)
 
-        # 是否檢查 Nitro
-        print(Fore.WHITE + "Do you want to check the generated codes?")
-        print(Fore.CYAN + "1. Yes, check all codes")
-        print(Fore.CYAN + "2. No, just save codes to file")
-        check_choice = input(Fore.WHITE + "Enter choice (1-2): ").strip()
-
-        if check_choice == '1':
+        if check:
             self.check_codes_batch(codes, self.use_proxy, speed_mode)
             self.print_results()
             if self.results['ratelimited']:
@@ -642,70 +614,38 @@ class IntegratedDiscordTool:
                 for code in codes:
                     f.write(f"https://discord.gift/{code}\n")
             print(Fore.GREEN + f"Codes saved to: {filename}")
-        input(Fore.WHITE + "Press Enter to exit...")
-        
-        # Number of codes to generate
-        while True:
-            try:
-                amount = int(input(Fore.WHITE + "Enter number of codes to generate: "))
-                if amount > 0:
-                    break
-                else:
-                    print(Fore.RED + "Please enter a positive number.")
-            except ValueError:
-                print(Fore.RED + "Please enter a valid number.")
-        
-        # Generate codes
-        codes = self.generate_codes(amount, code_type)
-        
-        # Ask if user wants to check codes
-        print(Fore.WHITE + "Do you want to check the generated codes?")
-        print(Fore.CYAN + "1. Yes, check all codes")
-        print(Fore.CYAN + "2. No, just save codes to file")
-        
-        check_choice = input(Fore.WHITE + "Enter choice (1-2): ").strip()
-        
-        if check_choice == '1':
-            # Check codes
-            self.check_codes_batch(codes, self.use_proxy, speed_mode)
-            
-            # Show results
-            self.print_results()
-            
-            # Ask about rechecking rate limited codes
-            if self.results['ratelimited']:
-                print(Fore.WHITE + f"Found {len(self.results['ratelimited'])} rate limited codes.")
-                recheck = input(Fore.YELLOW + "Do you want to recheck them? (y/n): ").strip().lower()
-                if recheck == 'y':
-                    self.recheck_ratelimited_codes(self.use_proxy)
-                    self.print_results()
-            
-            # Save results
-            self.save_results()
-        else:
-            # Just save generated codes
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            os.makedirs('./result', exist_ok=True)
-            filename = f"./result/discord_codes_{code_type}_{timestamp}.txt"
-            
-            with open(filename, 'w') as f:
-                for code in codes:
-                    f.write(f"https://discord.gift/{code}\n")
-            
-            print(Fore.GREEN + f"Codes saved to: {filename}")
-        
         input(Fore.WHITE + "Press Enter to exit...")
 
 def main():
     parser = argparse.ArgumentParser(description='Nitro Toolkit Integrated Tool')
     parser.add_argument('--gen-proxies', action='store_true', help='Download fresh proxies to data/proxies.txt and exit')
+    parser.add_argument('--use-proxy', action='store_true', help='Enable proxy mode (load proxies from data/proxies.txt)')
+    parser.add_argument('--proxy-file', type=str, default='data/proxies.txt', help='Proxy list file path (default: data/proxies.txt)')
+    parser.add_argument('--code-type', type=str, choices=['boost', 'classic'], help='Nitro code type (boost/classic)')
+    parser.add_argument('--amount', type=int, help='Number of codes to generate')
+    parser.add_argument('--speed-mode', type=str, choices=['fast', 'balanced', 'safe', 'ultra_safe'], help='Speed mode for checking (fast/balanced/safe/ultra_safe)')
+    parser.add_argument('--check', action='store_true', help='Check generated codes (default: ask)')
+    parser.add_argument('--no-check', action='store_true', help='Do not check codes, just save (default: ask)')
     args = parser.parse_args()
     if args.gen_proxies:
-        download_and_save_proxies()
+        download_and_save_proxies(args.proxy_file)
         return
+    # 決定 check 參數
+    check = None
+    if args.check:
+        check = True
+    elif args.no_check:
+        check = False
     tool = IntegratedDiscordTool()
     try:
-        tool.main_menu()
+        tool.main_menu(
+            code_type=args.code_type,
+            amount=args.amount,
+            speed_mode=args.speed_mode,
+            check=check,
+            use_proxy=args.use_proxy,
+            proxy_file=args.proxy_file
+        )
     except KeyboardInterrupt:
         print(Fore.YELLOW + "Operation cancelled by user.")
     except Exception as e:
