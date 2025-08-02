@@ -8,6 +8,15 @@
 
 Discord Nitro gift code generator and checker toolkit.
 
+## ⚠️ Important Warning
+
+**This tool is for educational purposes only. Please comply with Discord's Terms of Service.**
+
+- Do not use this tool to violate Discord's ToS
+- Excessive API requests may result in IP bans
+- Use at your own risk and responsibility
+- The author is not responsible for any consequences
+
 ## Features
 
 - Generate Discord Nitro Classic and Boost codes

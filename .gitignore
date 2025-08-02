@@ -1,35 +1,34 @@
-
-# 結果文件夾
 /result/
 /results/
 
-# Python 編譯文件
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# 數據文件夷 (包含代理和個人數據)
 /data/
 
-# 環境變數文件
 .env
 .venv/
 
-# IDE 文件
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS 文件
 .DS_Store
 Thumbs.db
 
-# 個人測試文件 (避免推送個人數據)  
 *_personal.txt
 *_private.txt
 my_*.txt
 
-# 日誌文件
 *.log
+
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+build/lib/nitro-toolkit/
+nitro-toolkit.egg-info/
