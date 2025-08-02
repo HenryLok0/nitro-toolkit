@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nitro-toolkit"
-version = "2.0.1"
+version = "2.0.2"
 authors = [
     {name = "HenryLok0", email = "your.email@example.com"},
 ]
@@ -39,12 +39,8 @@ Source = "https://github.com/HenryLok0/discord"
 Documentation = "https://github.com/HenryLok0/discord/blob/main/README.md"
 
 [project.scripts]
-nitro-toolkit = "discord_nitro_tool.integrated_tool:main"
-nitro-checker = "discord_nitro_tool.discord_gift_checker:main"
+nitro-toolkit = "integrated_tool:main"
+nitro-checker = "discord_gift_checker:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["discord_nitro_tool*"]
-
-[tool.setuptools.package-data]
-discord_nitro_tool = ["data/*.txt", "*.md"]
+[tool.setuptools]
+py-modules = ["integrated_tool", "discord_gift_checker"]
