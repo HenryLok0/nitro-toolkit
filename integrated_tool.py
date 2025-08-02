@@ -58,19 +58,55 @@ class IntegratedDiscordTool:
         print(Fore.WHITE + "=" * 60)
     
     def load_proxies(self):
-        """Load proxy list from GitHub"""
+        """Load proxy list from multiple sources with validation"""
         try:
             print(Fore.YELLOW + "Loading proxy list...")
-            response = requests.get(self.prox_api, timeout=10)
-            if response.status_code == 200:
-                proxies = response.text.strip().split('\n')
-                self.prox = [{'http': f'http://{proxy}', 'https': f'http://{proxy}'} 
-                           for proxy in proxies if proxy.strip()]
-                print(Fore.GREEN + f"Loaded {len(self.prox)} proxies")
-                return True
-            else:
-                print(Fore.RED + "Failed to load proxy list")
+            
+            # Try multiple proxy sources
+            proxy_sources = [
+                "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+                "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+                "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"
+            ]
+            
+            all_proxies = []
+            for source in proxy_sources:
+                try:
+                    response = requests.get(source, timeout=10)
+                    if response.status_code == 200:
+                        proxies = response.text.strip().split('\n')
+                        all_proxies.extend([proxy.strip() for proxy in proxies if proxy.strip()])
+                        print(Fore.GREEN + f"Loaded {len(proxies)} proxies from {source.split('/')[-2]}")
+                except Exception as e:
+                    print(Fore.YELLOW + f"Failed to load from {source.split('/')[-2]}: {str(e)}")
+                    continue
+            
+            if not all_proxies:
+                print(Fore.RED + "No proxies loaded from any source")
                 return False
+            
+            # Remove duplicates and validate format
+            unique_proxies = list(set(all_proxies))
+            valid_proxies = []
+            
+            for proxy in unique_proxies:
+                if ':' in proxy and len(proxy.split(':')) == 2:
+                    try:
+                        ip, port = proxy.split(':')
+                        # Basic IP format validation
+                        parts = ip.split('.')
+                        if len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts):
+                            if 1 <= int(port) <= 65535:
+                                valid_proxies.append(proxy)
+                    except ValueError:
+                        continue
+            
+            self.prox = [{'http': f'http://{proxy}', 'https': f'http://{proxy}'} 
+                        for proxy in valid_proxies[:100]]  # Limit to 100 best proxies
+            
+            print(Fore.GREEN + f"Validated {len(self.prox)} working proxies")
+            return len(self.prox) > 0
+            
         except Exception as e:
             print(Fore.RED + f"Error loading proxies: {str(e)}")
             return False
@@ -108,7 +144,7 @@ class IntegratedDiscordTool:
     
     def check_gift_code(self, code: str, use_proxy: bool = False) -> Tuple[str, str]:
         """
-        Check single gift code validity
+        Check single gift code validity with improved error handling
         
         Args:
             code: Gift code to check
@@ -119,35 +155,60 @@ class IntegratedDiscordTool:
         """
         url = f"https://discord.com/api/v9/entitlements/gift-codes/{code}"
         
-        try:
-            # Select random proxy if enabled
-            proxy = None
-            if use_proxy and self.prox:
-                proxy = random.choice(self.prox)
-            
-            response = self.session.get(url, timeout=10, proxies=proxy)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'uses' in data or 'max_uses' in data:
-                    return code, 'valid'
-                else:
-                    return code, 'unknown'
-            elif response.status_code == 404:
-                return code, 'invalid'
-            elif response.status_code == 429:
-                return code, 'ratelimited'
-            elif response.status_code in [401, 403]:
-                return code, 'unauthorized'
-            else:
-                return code, f'error_{response.status_code}'
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Select random proxy if enabled
+                proxy = None
+                if use_proxy and self.prox:
+                    proxy = random.choice(self.prox)
                 
-        except requests.exceptions.Timeout:
-            return code, 'timeout'
-        except requests.exceptions.RequestException as e:
-            return code, f'error_{str(e)}'
-        except Exception as e:
-            return code, f'unknown_error_{str(e)}'
+                # Use shorter timeout for proxy requests
+                timeout = 5 if use_proxy else 10
+                response = self.session.get(url, timeout=timeout, proxies=proxy)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'uses' in data or 'max_uses' in data:
+                        return code, 'valid'
+                    else:
+                        return code, 'unknown'
+                elif response.status_code == 404:
+                    return code, 'invalid'
+                elif response.status_code == 429:
+                    return code, 'ratelimited'
+                elif response.status_code in [401, 403]:
+                    return code, 'unauthorized'
+                else:
+                    return code, f'error_{response.status_code}'
+                    
+            except requests.exceptions.ProxyError as e:
+                if attempt < max_retries - 1:
+                    print(Fore.YELLOW + f"Proxy error for {code}, retrying without proxy...")
+                    use_proxy = False  # Fallback to no proxy
+                    continue
+                else:
+                    return code, f"proxy_error"
+            except requests.exceptions.ConnectTimeout:
+                if attempt < max_retries - 1:
+                    sleep(0.5)  # Brief pause before retry
+                    continue
+                else:
+                    return code, 'timeout'
+            except requests.exceptions.Timeout:
+                return code, 'timeout'
+            except requests.exceptions.RequestException as e:
+                if "ProxyError" in str(e) or "Cannot connect to proxy" in str(e):
+                    if attempt < max_retries - 1:
+                        use_proxy = False  # Disable proxy for this request
+                        continue
+                    else:
+                        return code, 'proxy_connection_failed'
+                return code, f'error_{str(e)[:30]}'
+            except Exception as e:
+                return code, f'unknown_error_{str(e)[:30]}'
+        
+        return code, 'max_retries_exceeded'
     
     def check_codes_batch(self, codes: List[str], use_proxy: bool = False, 
                          speed_mode: str = "balanced", max_workers: int = 5) -> Dict:
@@ -348,15 +409,32 @@ class IntegratedDiscordTool:
                 continue
         
         # Proxy settings
-        print(Fore.WHITE + "Proxy Configuration:")
+        print(Fore.WHITE + "\nProxy Configuration:")
         print(Fore.CYAN + "1. Use proxies (recommended - avoids IP blocking)")
         print(Fore.CYAN + "2. Don't use proxies (faster but higher risk)")
+        print(Fore.CYAN + "3. Auto-detect (try proxies first, fallback to direct)")
         
-        proxy_choice = input(Fore.WHITE + "Enter choice (1-2): ").strip()
-        use_proxy = proxy_choice == '1'
+        proxy_choice = input(Fore.WHITE + "Enter choice (1-3): ").strip()
+        
+        if proxy_choice == '1':
+            use_proxy = True
+            if not self.load_proxies():
+                print(Fore.RED + "Failed to load proxies. Would you like to continue without proxies? (y/n)")
+                fallback = input().strip().lower()
+                if fallback != 'y':
+                    print(Fore.YELLOW + "Operation cancelled.")
+                    return
+                use_proxy = False
+        elif proxy_choice == '3':
+            use_proxy = True
+            if not self.load_proxies():
+                print(Fore.YELLOW + "Auto-detect: Using direct connection (no proxies available)")
+                use_proxy = False
+        else:
+            use_proxy = False
+            print(Fore.YELLOW + "Using direct connection (no proxies)")
         
         if use_proxy:
-            if not self.load_proxies():
                 print(Fore.RED + "Failed to load proxies. Continuing without proxies.")
                 use_proxy = False
         
