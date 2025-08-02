@@ -30,6 +30,7 @@ keywords = ["discord", "nitro", "generator", "checker", "gift", "codes", "api"]
 dependencies = [
     "requests>=2.25.0",
     "colorama>=0.4.0",
+    "inquirer"
 ]
 
 [project.urls]

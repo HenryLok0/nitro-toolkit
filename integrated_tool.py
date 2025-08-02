@@ -493,80 +493,108 @@ class IntegratedDiscordTool:
         
         print(Fore.GREEN + f"Results saved to: {filename}")
     
+
     def main_menu(self):
         """Main application menu (now supports CLI proxy args)"""
         parser = argparse.ArgumentParser(description='Nitro Toolkit Integrated Tool')
         parser.add_argument('--use-proxy', action='store_true', help='Enable proxy mode (load proxies from data/proxies.txt)')
         parser.add_argument('--proxy-file', type=str, default='data/proxies.txt', help='Proxy list file path (default: data/proxies.txt)')
-        args, unknown = parser.parse_known_args()
+        args = parser.parse_args()
 
         self.use_proxy = False
+        # CLI 參數流程
         if args.use_proxy:
             self.use_proxy = True
             if not self.load_proxies():
                 print(Fore.RED + "Failed to load proxies. Continuing without proxies.")
                 self.use_proxy = False
-        # 若沒用 CLI 參數，則進入互動式選單
-        else:
-            first = True
-            while True:
-                if first:
-                    self.print_banner()
-                    # 顯示已啟用選項提示
-                    enabled_opts = []
-                    if self.use_proxy:
-                        enabled_opts.append('--use-proxy')
-                    # 你可依需求加入更多 CLI 參數提示
-                    if enabled_opts:
-                        print(Fore.YELLOW + f"[Tips] Enabled options: {' '.join(enabled_opts)}")
-                    first = False
-                print(Fore.WHITE + "Select Discord Nitro code type:")
-                print(Fore.CYAN + "1. Discord Nitro Boost")
-                print(Fore.CYAN + "2. Discord Nitro Classic")
-                print(Fore.RED + "3. Exit")
-                choice = input(Fore.WHITE + "Enter choice (1-3): ").strip()
-                if choice == '1':
-                    code_type = "boost"
-                    break
-                elif choice == '2':
-                    code_type = "classic"
-                    break
-                elif choice == '3':
-                    print(Fore.YELLOW + "Goodbye!")
-                    sys.exit(0)
-                else:
-                    print(Fore.RED + "Invalid choice. Please select 1, 2, or 3.")
-                    input(Fore.WHITE + "Press Enter to continue...")
-                    continue
-            # Proxy settings互動式
-            print(Fore.WHITE + "\nProxy Configuration:")
-            print(Fore.CYAN + "1. Use proxies (recommended - avoids IP blocking)")
-            print(Fore.CYAN + "2. Don't use proxies (faster but higher risk)")
-            print(Fore.CYAN + "3. Auto-detect (try proxies first, fallback to direct)")
-            print(Fore.WHITE + "\n⚠️  IMPORTANT NOTE:")
-            print(Fore.YELLOW + "• 404 errors are NORMAL - they mean the code doesn't exist")
-            print(Fore.YELLOW + "• Valid Discord Nitro codes are extremely rare (1 in billions)")
-            print(Fore.YELLOW + "• Most generated codes will show as '404/Invalid' - this is expected!")
-            proxy_choice = input(Fore.WHITE + "\nEnter choice (1-3): ").strip()
-            if proxy_choice == '1':
-                self.use_proxy = True
-                if not self.load_proxies():
-                    print(Fore.RED + "Failed to load proxies. Would you like to continue without proxies? (y/n)")
-                    fallback = input().strip().lower()
-                    if fallback != 'y':
-                        print(Fore.YELLOW + "Operation cancelled.")
-                        return
-                    self.use_proxy = False
-            elif proxy_choice == '3':
-                self.use_proxy = True
-                if not self.load_proxies():
-                    print(Fore.YELLOW + "Auto-detect: Using direct connection (no proxies available)")
-                    self.use_proxy = False
-            else:
-                self.use_proxy = False
-                print(Fore.YELLOW + "Using direct connection (no proxies)")
+            enabled_opts = ['--use-proxy']
+            if args.proxy_file != 'data/proxies.txt':
+                enabled_opts.append(f'--proxy-file {args.proxy_file}')
+            self.print_banner()
+            print(Fore.YELLOW + f"[Tips] Enabled options: {' '.join(enabled_opts)}")
+            code_type = 'boost'  # 預設 boost
+            speed_mode = 'balanced'  # 預設 balanced
+            amount = 10  # 預設產生 10 組
+            # 你可根據需求讓 CLI 支援更多自訂參數
+            print(Fore.CYAN + f"Auto mode: Generating {amount} Nitro Boost codes and checking...")
+            codes = self.generate_codes(amount, code_type)
+            self.check_codes_batch(codes, self.use_proxy, speed_mode)
+            self.print_results()
+            if self.results['ratelimited']:
+                print(Fore.WHITE + f"Found {len(self.results['ratelimited'])} rate limited codes.")
+                recheck = input(Fore.YELLOW + "Do you want to recheck them? (y/n): ").strip().lower()
+                if recheck == 'y':
+                    self.recheck_ratelimited_codes(self.use_proxy)
+                    self.print_results()
+            self.save_results()
+            input(Fore.WHITE + "Press Enter to exit...")
+            return
 
-        # Speed mode selection
+        # 互動式選單流程
+        self.print_banner()
+        enabled_opts = []
+        if self.use_proxy:
+            enabled_opts.append('--use-proxy')
+        if enabled_opts:
+            print(Fore.YELLOW + f"[Tips] Enabled options: {' '.join(enabled_opts)}")
+
+        # 選擇 Nitro 類型（支援上下鍵）
+        import subprocess
+        try:
+            import inquirer
+        except ImportError:
+            print(Fore.YELLOW + "\n[!] inquirer 套件未安裝，正在安裝...")
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'inquirer'])
+            import inquirer
+
+        questions = [
+            inquirer.List(
+                'code_type',
+                message="Select Discord Nitro code type:",
+                choices=[
+                    ('Discord Nitro Boost', 'boost'),
+                    ('Discord Nitro Classic', 'classic'),
+                    ('Exit', 'exit')
+                ],
+                carousel=True
+            )
+        ]
+        answer = inquirer.prompt(questions)
+        if not answer or answer['code_type'] == 'exit':
+            print(Fore.YELLOW + "Goodbye!")
+            sys.exit(0)
+        code_type = answer['code_type']
+
+        # Proxy 設定
+        print(Fore.WHITE + "\nProxy Configuration:")
+        print(Fore.CYAN + "1. Use proxies (recommended - avoids IP blocking)")
+        print(Fore.CYAN + "2. Don't use proxies (faster but higher risk)")
+        print(Fore.CYAN + "3. Auto-detect (try proxies first, fallback to direct)")
+        print(Fore.WHITE + "\n⚠️  IMPORTANT NOTE:")
+        print(Fore.YELLOW + "• 404 errors are NORMAL - they mean the code doesn't exist")
+        print(Fore.YELLOW + "• Valid Discord Nitro codes are extremely rare (1 in billions)")
+        print(Fore.YELLOW + "• Most generated codes will show as '404/Invalid' - this is expected!")
+        proxy_choice = input(Fore.WHITE + "\nEnter choice (1-3): ").strip()
+        if proxy_choice == '1':
+            self.use_proxy = True
+            if not self.load_proxies():
+                print(Fore.RED + "Failed to load proxies. Would you like to continue without proxies? (y/n)")
+                fallback = input().strip().lower()
+                if fallback != 'y':
+                    print(Fore.YELLOW + "Operation cancelled.")
+                    return
+                self.use_proxy = False
+        elif proxy_choice == '3':
+            self.use_proxy = True
+            if not self.load_proxies():
+                print(Fore.YELLOW + "Auto-detect: Using direct connection (no proxies available)")
+                self.use_proxy = False
+        else:
+            self.use_proxy = False
+            print(Fore.YELLOW + "Using direct connection (no proxies)")
+
+        # Speed mode
         print(Fore.WHITE + "Speed mode:")
         print(Fore.GREEN + "1. Fast (0.1s delay, higher rate limit risk)")
         print(Fore.YELLOW + "2. Balanced (1s delay, recommended)")
@@ -576,7 +604,7 @@ class IntegratedDiscordTool:
         speed_modes = {'1': 'fast', '2': 'balanced', '3': 'safe', '4': 'ultra_safe'}
         speed_mode = speed_modes.get(speed_choice, 'balanced')
 
-        # Number of codes to generate
+        # 產生數量
         while True:
             try:
                 amount = int(input(Fore.WHITE + "Enter number of codes to generate: "))
@@ -587,10 +615,10 @@ class IntegratedDiscordTool:
             except ValueError:
                 print(Fore.RED + "Please enter a valid number.")
 
-        # Generate codes
+        # 產生 Nitro
         codes = self.generate_codes(amount, code_type)
 
-        # Ask if user wants to check codes
+        # 是否檢查 Nitro
         print(Fore.WHITE + "Do you want to check the generated codes?")
         print(Fore.CYAN + "1. Yes, check all codes")
         print(Fore.CYAN + "2. No, just save codes to file")
@@ -671,7 +699,7 @@ class IntegratedDiscordTool:
 def main():
     parser = argparse.ArgumentParser(description='Nitro Toolkit Integrated Tool')
     parser.add_argument('--gen-proxies', action='store_true', help='Download fresh proxies to data/proxies.txt and exit')
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
     if args.gen_proxies:
         download_and_save_proxies()
         return

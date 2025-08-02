@@ -43,12 +43,6 @@ class DiscordGiftChecker:
         pattern = r'discord\.gift/([A-Za-z0-9]+)'
         matches = re.findall(pattern, text)
         return matches
-    def extract_gift_codes(self, text: str) -> list:
-        """Extract Discord gift codes from text"""
-        import re
-        pattern = r'discord\.gift/([A-Za-z0-9]+)'
-        matches = re.findall(pattern, text)
-        return matches
 
 def download_and_save_proxies(proxy_file='data/proxies.txt', limit=200):
     import requests, os
@@ -74,32 +68,7 @@ def download_and_save_proxies(proxy_file='data/proxies.txt', limit=200):
     print(f"Downloaded {len(unique)} proxies to {proxy_file}")
     return True
 
-        # Match discord.gift/CODE format
-    parser = argparse.ArgumentParser(description='Discord Gift Link Checker')
-    parser.add_argument('--gen-proxies', action='store_true', help='Download fresh proxies to data/proxies.txt and exit')
-    parser.add_argument('--input', '-i', help='Input file path (containing gift card links)')
-    parser.add_argument('--delay', '-d', type=float, default=1.0, help='Request delay (seconds, default: 1.0)')
-    parser.add_argument('--timeout', '-t', type=int, default=10, help='Request timeout (seconds, default: 10)')
-    parser.add_argument('--workers', '-w', type=int, default=5, help='Max concurrent workers (default: 5)')
-    parser.add_argument('--no-threading', action='store_true', help='Disable multi-threading')
-    parser.add_argument('--output', '-o', help='Output filename')
-    parser.add_argument('--use-proxy', action='store_true', help='Enable proxy mode (load proxies from data/proxies.txt)')
-    parser.add_argument('--proxy-file', type=str, default='data/proxies.txt', help='Proxy list file path (default: data/proxies.txt)')
-
-    args = parser.parse_args()
-
-    if args.gen_proxies:
-        download_and_save_proxies(args.proxy_file)
-        return
-
-    # Initialize checker
-    checker = DiscordGiftChecker(
-        delay=args.delay,
-        timeout=args.timeout,
-        max_workers=args.workers,
-        use_proxy=args.use_proxy,
-        proxy_file=args.proxy_file
-    )
+    # ...existing code...
     
     def check_gift_code(self, code: str) -> Tuple[str, str]:
         """
@@ -239,7 +208,22 @@ def download_and_save_proxies(proxy_file='data/proxies.txt', limit=200):
         print(f"\nResults saved to: {save_filename}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Discord Gift Link Checker')
+    # ...existing code...
+    parser = argparse.ArgumentParser(
+        description='Discord Gift Link Checker',
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog='''\nAll options:\n\n'
+        --gen-proxies           Download fresh proxies to data/proxies.txt and exit\n'
+        --input, -i             Input file path (containing gift card links)\n'
+        --delay, -d             Request delay (seconds, default: 1.0)\n'
+        --timeout, -t           Request timeout (seconds, default: 10)\n'
+        --workers, -w           Max concurrent workers (default: 5)\n'
+        --no-threading          Disable multi-threading\n'
+        --output, -o            Output filename\n'
+        --use-proxy             Enable proxy mode (load proxies from data/proxies.txt)\n'
+        --proxy-file            Proxy list file path (default: data/proxies.txt)\n'
+        '''
+    )
     parser.add_argument('--gen-proxies', action='store_true', help='Download fresh proxies to data/proxies.txt and exit')
     parser.add_argument('--input', '-i', help='Input file path (containing gift card links)')
     parser.add_argument('--delay', '-d', type=float, default=1.0, help='Request delay (seconds, default: 1.0)')

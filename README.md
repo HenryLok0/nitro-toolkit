@@ -38,17 +38,23 @@ pip install nitro-toolkit
 # Run the integrated tool
 nitro-toolkit
 
-# Or check existing links
-nitro-checker --input links.txt
+# Basic usage
+codestate [options]
 ```
 
-## Usage
+## Options
 
-1. Select code type (Boost/Classic)
-2. Configure proxy settings (recommended)
-3. Choose speed mode (Fast/Balanced/Safe)
-4. Generate and check codes
-5. View results in `/result` folder
+| Option                  | Description |
+|-------------------------|-------------|
+| `--gen-proxies`         | Download fresh proxies to data/proxies.txt and exit |
+| `--input`, `-i`         | Input file path (containing gift card links) |
+| `--delay`, `-d`         | Request delay (seconds, default: 1.0) |
+| `--timeout`, `-t`       | Request timeout (seconds, default: 10) |
+| `--workers`, `-w`       | Max concurrent workers (default: 5) |
+| `--no-threading`        | Disable multi-threading |
+| `--output`, `-o`        | Output filename |
+| `--use-proxy`           | Enable proxy mode (load proxies from data/proxies.txt) |
+| `--proxy-file`          | Proxy list file path (default: data/proxies.txt) |
 
 ## Important Notes
 
