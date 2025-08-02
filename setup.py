@@ -10,14 +10,15 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="nitro-toolkit",
-    version="2.0.0",
+    version="2.0.1",
     author="HenryLok0",
     author_email="mail@henrylok.me",  # Replace with your email
     description="Discord Nitro gift code generator and checker toolkit",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/HenryLok0/nitro-toolkit",
-    packages=find_packages(),
+    packages=find_packages() + [''],
+    py_modules=['integrated_tool', 'discord_gift_checker'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -39,13 +40,13 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "nitro-toolkit=discord_nitro_tool.integrated_tool:main",
-            "nitro-checker=discord_nitro_tool.discord_gift_checker:main",
+            "nitro-toolkit=integrated_tool:main",
+            "nitro-checker=discord_gift_checker:main",
         ],
     },
     include_package_data=True,
     package_data={
-        "discord_nitro_tool": ["data/*.txt", "*.md"],
+        "": ["data/*.txt", "*.md"],
     },
     keywords="discord nitro generator checker gift codes api",
     project_urls={
