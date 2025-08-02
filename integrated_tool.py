@@ -508,8 +508,18 @@ class IntegratedDiscordTool:
                 self.use_proxy = False
         # 若沒用 CLI 參數，則進入互動式選單
         else:
+            first = True
             while True:
-                self.print_banner()
+                if first:
+                    self.print_banner()
+                    # 顯示已啟用選項提示
+                    enabled_opts = []
+                    if self.use_proxy:
+                        enabled_opts.append('--use-proxy')
+                    # 你可依需求加入更多 CLI 參數提示
+                    if enabled_opts:
+                        print(Fore.YELLOW + f"[Tips] Enabled options: {' '.join(enabled_opts)}")
+                    first = False
                 print(Fore.WHITE + "Select Discord Nitro code type:")
                 print(Fore.CYAN + "1. Discord Nitro Boost")
                 print(Fore.CYAN + "2. Discord Nitro Classic")
