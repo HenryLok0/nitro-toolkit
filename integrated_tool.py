@@ -231,12 +231,15 @@ class IntegratedDiscordTool:
         if speed_mode == "fast":
             base_delay = 0.1
             max_workers = min(max_workers, 10)
+            rate_limit_threshold = 2  # More sensitive in fast mode
         elif speed_mode == "safe":
             base_delay = 3.0
             max_workers = min(max_workers, 2)
+            rate_limit_threshold = 5  # Less sensitive in safe mode
         else:  # balanced
             base_delay = 1.0
             max_workers = min(max_workers, 5)
+            rate_limit_threshold = 3  # Default sensitivity
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
@@ -246,10 +249,18 @@ class IntegratedDiscordTool:
             }
             
             completed = 0
+            consecutive_rate_limits = 0
+            
             for future in as_completed(future_to_code):
                 completed += 1
                 code, status = future.result()
                 self._categorize_result(code, status)
+                
+                # Track consecutive rate limits
+                if status == 'ratelimited':
+                    consecutive_rate_limits += 1
+                else:
+                    consecutive_rate_limits = 0  # Reset counter
                 
                 # Status display with colors
                 if status == 'valid':
@@ -263,8 +274,33 @@ class IntegratedDiscordTool:
                 else:
                     print(Fore.CYAN + f"[{completed}/{len(codes)}] {code} -> ⚠️ {status}")
                 
+                # Auto-cooldown when too many consecutive rate limits
+                if consecutive_rate_limits >= rate_limit_threshold:
+                    cooldown_time = 30 if speed_mode != "safe" else 60  # Longer cooldown for non-safe modes
+                    print(Fore.RED + f"\n🛑 Too many rate limits detected ({consecutive_rate_limits} consecutive)")
+                    print(Fore.YELLOW + f"⏳ Cooling down for {cooldown_time} seconds...")
+                    
+                    # Suggest switching to safer mode if not already in safe mode
+                    if speed_mode != "safe":
+                        print(Fore.CYAN + f"💡 Consider using 'Safe' mode to reduce rate limiting in future runs")
+                    
+                    for i in range(cooldown_time, 0, -1):
+                        print(Fore.CYAN + f"\r⏱️  Waiting... {i} seconds remaining", end="", flush=True)
+                        sleep(1)
+                    
+                    print(Fore.GREEN + f"\n✅ Cooldown complete! Resuming checks...")
+                    consecutive_rate_limits = 0  # Reset counter after cooldown
+                    
+                    # Auto-adjust delays after cooldown to be more conservative
+                    if speed_mode == "fast":
+                        base_delay *= 2  # Double the delay for fast mode
+                        print(Fore.YELLOW + f"⚙️  Auto-adjusted delay to {base_delay}s for better rate limiting")
+                    elif speed_mode == "balanced":
+                        base_delay *= 1.5  # Increase delay for balanced mode
+                        print(Fore.YELLOW + f"⚙️  Auto-adjusted delay to {base_delay}s for better rate limiting")
+                
                 # Dynamic delay adjustment
-                if status == 'ratelimited':
+                elif status == 'ratelimited':
                     sleep(base_delay * 2)  # Longer delay for rate limited
                 elif status.startswith('error'):
                     sleep(base_delay * 1.5)  # Medium delay for errors
