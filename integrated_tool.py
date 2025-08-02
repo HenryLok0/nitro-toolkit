@@ -537,7 +537,7 @@ class IntegratedDiscordTool:
             
             with open(filename, 'w') as f:
                 for code in codes:
-                    f.write(f"https://discord.gift/{code}")
+                    f.write(f"https://discord.gift/{code}\n")
             
             print(Fore.GREEN + f"Codes saved to: {filename}")
         
